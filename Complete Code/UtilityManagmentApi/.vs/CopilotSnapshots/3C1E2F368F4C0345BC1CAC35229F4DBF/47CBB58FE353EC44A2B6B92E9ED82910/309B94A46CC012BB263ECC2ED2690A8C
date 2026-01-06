@@ -1,0 +1,649 @@
+﻿using System.ComponentModel.DataAnnotations;
+using UtilityManagmentApi.DTOs.Auth;
+
+namespace TestProject.DTOs;
+
+public class AuthDtosValidationTests
+{
+    private List<ValidationResult> ValidateModel(object model)
+    {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(model, null, null);
+        Validator.TryValidateObject(model, validationContext, validationResults, true);
+        return validationResults;
+    }
+
+    #region LoginRequestDto Validation Tests
+
+    [Fact]
+    public void LoginRequestDto_WithValidData_PassesValidation()
+    {
+        // Arrange
+        var dto = new LoginRequestDto
+        {
+            Email = "user@test.com",
+            Password = "Password123!"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Fact]
+    public void LoginRequestDto_WithInvalidEmail_FailsValidation()
+    {
+        // Arrange
+        var dto = new LoginRequestDto
+        {
+            Email = "invalid-email",
+            Password = "Password123!"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(LoginRequestDto.Email)));
+    }
+
+    [Fact]
+    public void LoginRequestDto_WithEmptyEmail_FailsValidation()
+    {
+        // Arrange
+        var dto = new LoginRequestDto
+        {
+            Email = "",
+            Password = "Password123!"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+    }
+
+    [Fact]
+    public void LoginRequestDto_WithEmptyPassword_FailsValidation()
+    {
+        // Arrange
+        var dto = new LoginRequestDto
+        {
+            Email = "user@test.com",
+            Password = ""
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+    }
+
+    #endregion
+
+    #region ConsumerRegisterDto Validation Tests
+
+    [Fact]
+    public void ConsumerRegisterDto_WithValidData_PassesValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Phone = "1234567890",
+            Address = "123 Main St",
+            City = "Test City",
+            State = "Test State",
+            PostalCode = "12345"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithEmptyFirstName_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.FirstName)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithEmptyLastName_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.LastName)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithInvalidEmail_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "invalid-email",
+            Password = "Password123!",
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.Email)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithShortPassword_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "12345", // Less than 6 characters
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.Password)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithEmptyAddress_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Address = ""
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.Address)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithFirstNameTooLong_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = new string('A', 101), // Exceeds 100 char limit
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.FirstName)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithEmailTooLong_FailsValidation()
+    {
+        // Arrange
+        var longEmail = new string('a', 250) + "@test.com"; // Exceeds 256 char limit
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = longEmail,
+            Password = "Password123!",
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.Email)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithOptionalFieldsNull_PassesValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Phone = null,
+            Address = "123 Main St",
+            City = "Test City",
+            State = "Test State",
+            PostalCode = "12345"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    #endregion
+
+    #region RegisterRequestDto Validation Tests
+
+    [Fact]
+    public void RegisterRequestDto_WithValidData_PassesValidation()
+    {
+        // Arrange
+        var dto = new RegisterRequestDto
+        {
+            FirstName = "Admin",
+            LastName = "User",
+            Email = "admin@test.com",
+            Password = "Password123!",
+            Role = "Admin"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Fact]
+    public void RegisterRequestDto_WithEmptyRole_FailsValidation()
+    {
+        // Arrange
+        var dto = new RegisterRequestDto
+        {
+            FirstName = "Admin",
+            LastName = "User",
+            Email = "admin@test.com",
+            Password = "Password123!",
+            Role = ""
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(RegisterRequestDto.Role)));
+    }
+
+    [Theory]
+    [InlineData("Admin")]
+    [InlineData("BillingOfficer")]
+    [InlineData("AccountOfficer")]
+    public void RegisterRequestDto_WithValidRoles_PassesValidation(string role)
+    {
+        // Arrange
+        var dto = new RegisterRequestDto
+        {
+            FirstName = "Test",
+            LastName = "User",
+            Email = "test@test.com",
+            Password = "Password123!",
+            Role = role
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    #endregion
+
+    #region UpdateUserDto Validation Tests
+
+    [Fact]
+    public void UpdateUserDto_WithValidData_PassesValidation()
+    {
+        // Arrange
+        var dto = new UpdateUserDto
+        {
+            FirstName = "Updated",
+            LastName = "Name",
+            IsActive = true
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Fact]
+    public void UpdateUserDto_WithAllNullFields_PassesValidation()
+    {
+        // Arrange
+        var dto = new UpdateUserDto
+        {
+            FirstName = null,
+            LastName = null,
+            IsActive = null
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Fact]
+    public void UpdateUserDto_WithOnlyFirstName_PassesValidation()
+    {
+        // Arrange
+        var dto = new UpdateUserDto
+        {
+            FirstName = "NewFirstName",
+            LastName = null,
+            IsActive = null
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Fact]
+    public void UpdateUserDto_WithRoleChange_PassesValidation()
+    {
+        // Arrange
+        var dto = new UpdateUserDto
+        {
+            FirstName = "Updated",
+            LastName = "Name",
+            Role = "Admin",
+            IsActive = true
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Fact]
+    public void UpdateUserDto_WithRoleTooLong_FailsValidation()
+    {
+        // Arrange
+        var dto = new UpdateUserDto
+        {
+            Role = new string('A', 51) // Exceeds 50 char limit
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(UpdateUserDto.Role)));
+    }
+
+    [Fact]
+    public void UpdateUserDto_WithPhoneTooLong_FailsValidation()
+    {
+        // Arrange
+        var dto = new UpdateUserDto
+        {
+            Phone = new string('1', 21) // Exceeds 20 char limit
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(UpdateUserDto.Phone)));
+    }
+
+    #endregion
+
+    #region LoginResponseDto Tests
+
+    [Fact]
+    public void LoginResponseDto_CanBeInstantiated_WithAllProperties()
+    {
+        // Arrange & Act
+        var dto = new LoginResponseDto
+        {
+            Token = "jwt-token-here",
+            RefreshToken = "refresh-token-here",
+            Expiration = DateTime.UtcNow.AddHours(1),
+            User = new UserDto
+            {
+                Id = 1,
+                Email = "user@test.com",
+                FirstName = "John",
+                LastName = "Doe",
+                Role = "Consumer",
+                IsActive = true,
+                ConsumerNumber = "CONS001"
+            }
+        };
+
+        // Assert
+        Assert.NotNull(dto.Token);
+        Assert.NotNull(dto.RefreshToken);
+        Assert.NotEqual(default(DateTime), dto.Expiration);
+        Assert.Equal(1, dto.User.Id);
+        Assert.Equal("user@test.com", dto.User.Email);
+        Assert.Equal("John", dto.User.FirstName);
+        Assert.Equal("Doe", dto.User.LastName);
+        Assert.Equal("Consumer", dto.User.Role);
+        Assert.Equal("CONS001", dto.User.ConsumerNumber);
+    }
+
+    [Fact]
+    public void LoginResponseDto_ConsumerNumber_CanBeNull()
+    {
+        // Arrange & Act
+        var dto = new LoginResponseDto
+        {
+            Token = "jwt-token-here",
+            RefreshToken = "refresh-token-here",
+            Expiration = DateTime.UtcNow.AddHours(1),
+            User = new UserDto
+            {
+                Id = 1,
+                Email = "admin@test.com",
+                FirstName = "Admin",
+                LastName = "User",
+                Role = "Admin",
+                IsActive = true,
+                ConsumerNumber = null // Admin doesn't have consumer number
+            }
+        };
+
+        // Assert
+        Assert.Null(dto.User.ConsumerNumber);
+    }
+
+    #endregion
+
+    #region UserDto Tests
+
+    [Fact]
+    public void UserDto_CanBeInstantiated_WithAllProperties()
+    {
+        // Arrange & Act
+        var dto = new UserDto
+        {
+            Id = 1,
+            Email = "user@test.com",
+            FirstName = "John",
+            LastName = "Doe",
+            Role = "BillingOfficer",
+            IsActive = true,
+            CreatedAt = DateTime.Now
+        };
+
+        // Assert
+        Assert.Equal(1, dto.Id);
+        Assert.Equal("user@test.com", dto.Email);
+        Assert.Equal("John", dto.FirstName);
+        Assert.Equal("Doe", dto.LastName);
+        Assert.Equal("BillingOfficer", dto.Role);
+        Assert.True(dto.IsActive);
+        Assert.NotEqual(default(DateTime), dto.CreatedAt);
+    }
+
+    #endregion
+
+    #region Edge Cases and Special Scenarios
+
+    [Fact]
+    public void ConsumerRegisterDto_WithPhoneTooLong_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Phone = "123456789012345678901", // Exceeds 20 char limit
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.Phone)));
+    }
+
+    [Fact]
+    public void ConsumerRegisterDto_WithAddressTooLong_FailsValidation()
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = "Password123!",
+            Address = new string('A', 501) // Exceeds 500 char limit
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.NotEmpty(validationResults);
+        Assert.Contains(validationResults, v => v.MemberNames.Contains(nameof(ConsumerRegisterDto.Address)));
+    }
+
+    [Theory]
+    [InlineData("user@test.com")]
+    [InlineData("user.name@test.co.uk")]
+    [InlineData("user+tag@test.com")]
+    [InlineData("user_name@test-domain.com")]
+    public void LoginRequestDto_WithVariousValidEmails_PassesValidation(string email)
+    {
+        // Arrange
+        var dto = new LoginRequestDto
+        {
+            Email = email,
+            Password = "Password123!"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    [Theory]
+    [InlineData("Password123!")]
+    [InlineData("SecureP@ss123")]
+    [InlineData("MyP@ssw0rd!")]
+    public void ConsumerRegisterDto_WithVariousValidPasswords_PassesValidation(string password)
+    {
+        // Arrange
+        var dto = new ConsumerRegisterDto
+        {
+            FirstName = "John",
+            LastName = "Doe",
+            Email = "john.doe@test.com",
+            Password = password,
+            Address = "123 Main St"
+        };
+
+        // Act
+        var validationResults = ValidateModel(dto);
+
+        // Assert
+        Assert.Empty(validationResults);
+    }
+
+    #endregion
+}

@@ -1,0 +1,120 @@
+<div class="neo-shell" [class.sidebar-collapsed]="isCollapsed">
+  <!-- Futuristic Sidebar -->
+  <aside class="neo-sidebar">
+    <!-- Animated Background -->
+    <div class="sidebar-bg">
+      <div class="gradient-orb orb-1"></div>
+      <div class="gradient-orb orb-2"></div>
+      <div class="grid-overlay"></div>
+    </div>
+
+    <!-- Brand Section -->
+    <button class="neo-brand" (click)="toggleCollapse()">
+      <div class="brand-logo">
+        <div class="logo-inner">
+          <mat-icon>bolt</mat-icon>
+        </div>
+        <div class="logo-glow"></div>
+      </div>
+      <div class="brand-text" *ngIf="!isCollapsed">
+        <span class="brand-name">Utility</span>
+        <span class="brand-sub">Billing</span>
+      </div>
+    </button>
+
+    <!-- Navigation -->
+    <nav class="neo-nav">
+      <div class="nav-scroll">
+        <ng-container *ngFor="let item of navItems; let i = index">
+          <a *ngIf="canView(item.roles)"
+             class="nav-item"
+             [routerLink]="item.link" 
+             routerLinkActive="active"
+             [matTooltip]="isCollapsed ? item.label : ''"
+             matTooltipPosition="right">
+            <div class="nav-indicator"></div>
+            <div class="nav-glow"></div>
+            <div class="nav-icon">
+              <mat-icon>{{ item.icon }}</mat-icon>
+            </div>
+            <span class="nav-label" *ngIf="!isCollapsed">{{ item.label }}</span>
+            <div class="nav-arrow" *ngIf="!isCollapsed">
+              <mat-icon>chevron_right</mat-icon>
+            </div>
+          </a>
+        </ng-container>
+      </div>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="neo-sidebar-footer">
+      <div class="footer-divider"></div>
+      <button class="collapse-toggle" (click)="toggleCollapse()">
+        <mat-icon>{{ isCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left' }}</mat-icon>
+        <span *ngIf="!isCollapsed">Collapse</span>
+      </button>
+      <div class="version-badge" *ngIf="!isCollapsed">
+        <span class="version-dot"></span>
+        <span>v1.0.0</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="neo-main">
+    <!-- Clean Top Bar -->
+    <header class="neo-topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Utility Billing Centre</h1>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Notifications -->
+        <button class="topbar-btn notification-btn" 
+                [class.has-notifications]="unreadCount > 0"
+                routerLink="/notifications" 
+                matTooltip="Notifications">
+          <mat-icon [matBadge]="unreadCount > 0 ? unreadCount : null" 
+                    matBadgeColor="warn" 
+                    matBadgeSize="small"
+                    [matBadgeHidden]="unreadCount === 0">{{ unreadCount > 0 ? 'notifications_active' : 'notifications_none' }}</mat-icon>
+        </button>
+
+        <!-- User Section -->
+        <div class="user-section" *ngIf="currentUser$ | async as user">
+          <div class="user-info">
+            <span class="user-greeting">{{ getGreeting() }}</span>
+            <span class="user-name">{{ user.firstName }}</span>
+          </div>
+          <button class="user-avatar" [matMenuTriggerFor]="userMenu">
+            {{ user.firstName.charAt(0) }}{{ user.lastName.charAt(0) }}
+          </button>
+        </div>
+
+        <mat-menu #userMenu="matMenu" class="neo-menu">
+          <ng-container *ngIf="currentUser$ | async as user">
+            <div class="menu-header">
+              <div class="menu-avatar">
+                <span>{{ user.firstName.charAt(0) }}{{ user.lastName.charAt(0) }}</span>
+              </div>
+              <div class="menu-user-info">
+                <strong>{{ user.firstName }} {{ user.lastName }}</strong>
+                <span class="role-badge">{{ user.role }}</span>
+              </div>
+            </div>
+            <mat-divider></mat-divider>
+          </ng-container>
+          <button mat-menu-item class="menu-item logout-item" (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            <span>Sign Out</span>
+          </button>
+        </mat-menu>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <section class="neo-content">
+      <router-outlet></router-outlet>
+    </section>
+  </main>
+</div>

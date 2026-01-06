@@ -1,0 +1,529 @@
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Moq;
+using System.Security.Claims;
+using UtilityManagmentApi.Controllers;
+using UtilityManagmentApi.DTOs.Bill;
+using UtilityManagmentApi.DTOs.Common;
+using UtilityManagmentApi.DTOs.Consumer;
+using UtilityManagmentApi.Services.Interfaces;
+using Xunit;
+
+namespace TestProject.Controllers;
+
+/// <summary>
+/// Unit tests for BillsController - Testing bill management operations
+/// </summary>
+public class BillsControllerTests
+{
+    private readonly Mock<IBillService> _mockBillService;
+    private readonly Mock<IConsumerService> _mockConsumerService;
+    private readonly BillsController _controller;
+
+    public BillsControllerTests()
+    {
+        _mockBillService = new Mock<IBillService>();
+        _mockConsumerService = new Mock<IConsumerService>();
+        _controller = new BillsController(_mockBillService.Object, _mockConsumerService.Object);
+    }
+
+    #region Helper Methods
+
+    private void SetupUserClaims(int userId, string role)
+    {
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Role, role)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+    }
+
+    #endregion
+
+    #region GetAll Tests
+
+    [Fact]
+    public async Task GetAll_AsBillingOfficer_ReturnsOkWithBillList()
+    {
+        // Arrange
+        SetupUserClaims(1, "BillingOfficer");
+        var paginationParams = new PaginationParams { PageNumber = 1, PageSize = 10 };
+
+        var bills = new List<BillListDto>
+        {
+            new BillListDto
+            {
+                Id = 1,
+                BillNumber = "BILL-2024-001",
+                ConsumerName = "John Doe",
+                ConsumerNumber = "CON240001",
+                TotalAmount = 150.00m,
+                Status = "Unpaid",
+                BillingMonth = 1,
+                BillingYear = 2024
+            },
+            new BillListDto
+            {
+                Id = 2,
+                BillNumber = "BILL-2024-002",
+                ConsumerName = "Jane Smith",
+                ConsumerNumber = "CON240002",
+                TotalAmount = 200.00m,
+                Status = "Paid",
+                BillingMonth = 1,
+                BillingYear = 2024
+            }
+        };
+
+        var pagedResponse = new PagedResponse<BillListDto>
+        {
+            Success = true,
+            Data = bills,
+            PageNumber = 1,
+            PageSize = 10,
+            TotalRecords = 2
+        };
+
+        _mockBillService.Setup(x => x.GetAllAsync(It.IsAny<PaginationParams>(), null, null, null))
+            .ReturnsAsync(pagedResponse);
+
+        // Act
+        var result = await _controller.GetAll(paginationParams);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PagedResponse<BillListDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(2, response.Data.Count);
+    }
+
+    [Fact]
+    public async Task GetAll_WithStatusFilter_ReturnsFilteredBills()
+    {
+        // Arrange
+        SetupUserClaims(1, "Admin");
+        var paginationParams = new PaginationParams { PageNumber = 1, PageSize = 10 };
+
+        var unpaidBills = new List<BillListDto>
+        {
+            new BillListDto
+            {
+                Id = 1,
+                BillNumber = "BILL-2024-001",
+                Status = "Unpaid",
+                TotalAmount = 150.00m
+            }
+        };
+
+        var pagedResponse = new PagedResponse<BillListDto>
+        {
+            Success = true,
+            Data = unpaidBills,
+            TotalRecords = 1
+        };
+
+        _mockBillService.Setup(x => x.GetAllAsync(It.IsAny<PaginationParams>(), "Unpaid", null, null))
+            .ReturnsAsync(pagedResponse);
+
+        // Act
+        var result = await _controller.GetAll(paginationParams, status: "Unpaid");
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PagedResponse<BillListDto>>(okResult.Value);
+        Assert.Single(response.Data);
+        Assert.Equal("Unpaid", response.Data[0].Status);
+    }
+
+    [Fact]
+    public async Task GetAll_WithMonthAndYearFilter_ReturnsFilteredBills()
+    {
+        // Arrange
+        SetupUserClaims(1, "BillingOfficer");
+        var paginationParams = new PaginationParams { PageNumber = 1, PageSize = 10 };
+
+        var bills = new List<BillListDto>
+        {
+            new BillListDto
+            {
+                Id = 1,
+                BillingMonth = 12,
+                BillingYear = 2024
+            }
+        };
+
+        var pagedResponse = new PagedResponse<BillListDto>
+        {
+            Success = true,
+            Data = bills,
+            TotalRecords = 1
+        };
+
+        _mockBillService.Setup(x => x.GetAllAsync(It.IsAny<PaginationParams>(), null, 12, 2024))
+            .ReturnsAsync(pagedResponse);
+
+        // Act
+        var result = await _controller.GetAll(paginationParams, billingMonth: 12, billingYear: 2024);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PagedResponse<BillListDto>>(okResult.Value);
+        Assert.Single(response.Data);
+        Assert.Equal(12, response.Data[0].BillingMonth);
+        Assert.Equal(2024, response.Data[0].BillingYear);
+    }
+
+    #endregion
+
+    #region GetById Tests
+
+    [Fact]
+    public async Task GetById_AsBillingOfficer_ReturnsOkWithBill()
+    {
+        // Arrange
+        SetupUserClaims(1, "BillingOfficer");
+        var billId = 1;
+
+        var bill = new BillDto
+        {
+            Id = billId,
+            BillNumber = "BILL-2024-001",
+            ConsumerNumber = "CON240001",
+            TotalAmount = 150.00m,
+            Status = "Unpaid"
+        };
+
+        _mockBillService.Setup(x => x.GetByIdAsync(billId))
+            .ReturnsAsync(ApiResponse<BillDto>.SuccessResponse(bill));
+
+        // Act
+        var result = await _controller.GetById(billId);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BillDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("BILL-2024-001", response.Data!.BillNumber);
+    }
+
+    [Fact]
+    public async Task GetById_WithInvalidId_ReturnsNotFound()
+    {
+        // Arrange
+        SetupUserClaims(1, "BillingOfficer");
+        var billId = 999;
+
+        _mockBillService.Setup(x => x.GetByIdAsync(billId))
+            .ReturnsAsync(ApiResponse<BillDto>.ErrorResponse("Bill not found"));
+
+        // Act
+        var result = await _controller.GetById(billId);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    #endregion
+
+    #region GetMyBills Tests
+
+    [Fact]
+    public async Task GetMyBills_AsConsumer_ReturnsOwnBills()
+    {
+        // Arrange
+        var userId = 5;
+        var consumerId = 1;
+        SetupUserClaims(userId, "Consumer");
+
+        var consumer = new ConsumerDto
+        {
+            Id = consumerId,
+            UserId = userId,
+            ConsumerNumber = "CON240001"
+        };
+
+        var bills = new List<BillDto>
+        {
+            new BillDto
+            {
+                Id = 1,
+                BillNumber = "BILL-2024-001",
+                ConsumerNumber = "CON240001",
+                TotalAmount = 150.00m,
+                Status = "Unpaid"
+            },
+            new BillDto
+            {
+                Id = 2,
+                BillNumber = "BILL-2024-002",
+                ConsumerNumber = "CON240001",
+                TotalAmount = 120.00m,
+                Status = "Paid"
+            }
+        };
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.SuccessResponse(consumer));
+
+        _mockBillService.Setup(x => x.GetByConsumerIdAsync(consumerId))
+            .ReturnsAsync(ApiResponse<List<BillDto>>.SuccessResponse(bills));
+
+        // Act
+        var result = await _controller.GetMyBills();
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<List<BillDto>>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(2, response.Data!.Count);
+    }
+
+    [Fact]
+    public async Task GetMyBills_WithNoConsumerProfile_ReturnsNotFound()
+    {
+        // Arrange
+        var userId = 5;
+        SetupUserClaims(userId, "Consumer");
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.ErrorResponse("Consumer profile not found"));
+
+        // Act
+        var result = await _controller.GetMyBills();
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetMyBills_ReturnsEmptyList_WhenNoBills()
+    {
+        // Arrange
+        var userId = 5;
+        var consumerId = 1;
+        SetupUserClaims(userId, "Consumer");
+
+        var consumer = new ConsumerDto
+        {
+            Id = consumerId,
+            UserId = userId,
+            ConsumerNumber = "CON240001"
+        };
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.SuccessResponse(consumer));
+
+        _mockBillService.Setup(x => x.GetByConsumerIdAsync(consumerId))
+            .ReturnsAsync(ApiResponse<List<BillDto>>.SuccessResponse(new List<BillDto>()));
+
+        // Act
+        var result = await _controller.GetMyBills();
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<List<BillDto>>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Empty(response.Data!);
+    }
+
+    #endregion
+
+    #region GenerateBill Tests
+
+    [Fact]
+    public async Task GenerateBill_AsBillingOfficer_WithValidData_ReturnsCreatedResult()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "BillingOfficer");
+
+        var generateDto = new GenerateBillDto
+        {
+            MeterReadingId = 1,
+            DueDate = DateTime.Now.AddDays(15)
+        };
+
+        var createdBill = new BillDto
+        {
+            Id = 10,
+            BillNumber = "BILL-2024-010",
+            TotalAmount = 150.00m,
+            Status = "Unpaid"
+        };
+
+        _mockBillService.Setup(x => x.GenerateBillAsync(It.IsAny<GenerateBillDto>(), userId))
+            .ReturnsAsync(ApiResponse<BillDto>.SuccessResponse(createdBill, "Bill generated successfully"));
+
+        // Act
+        var result = await _controller.GenerateBill(generateDto);
+
+        // Assert
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        var response = Assert.IsType<ApiResponse<BillDto>>(createdResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("BILL-2024-010", response.Data!.BillNumber);
+    }
+
+    [Fact]
+    public async Task GenerateBill_WithInvalidMeterReading_ReturnsBadRequest()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "BillingOfficer");
+
+        var generateDto = new GenerateBillDto
+        {
+            MeterReadingId = 999,
+            DueDate = DateTime.Now.AddDays(15)
+        };
+
+        _mockBillService.Setup(x => x.GenerateBillAsync(It.IsAny<GenerateBillDto>(), userId))
+            .ReturnsAsync(ApiResponse<BillDto>.ErrorResponse("Meter reading not found"));
+
+        // Act
+        var result = await _controller.GenerateBill(generateDto);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BillDto>>(badRequestResult.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task GenerateBill_WithAlreadyBilledReading_ReturnsBadRequest()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "BillingOfficer");
+
+        var generateDto = new GenerateBillDto
+        {
+            MeterReadingId = 1,
+            DueDate = DateTime.Now.AddDays(15)
+        };
+
+        _mockBillService.Setup(x => x.GenerateBillAsync(It.IsAny<GenerateBillDto>(), userId))
+            .ReturnsAsync(ApiResponse<BillDto>.ErrorResponse("Meter reading already billed"));
+
+        // Act
+        var result = await _controller.GenerateBill(generateDto);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BillDto>>(badRequestResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("already billed", response.Message);
+    }
+
+    #endregion
+
+    #region GenerateBulkBills Tests
+
+    [Fact]
+    public async Task GenerateBulkBills_AsBillingOfficer_WithValidData_ReturnsOkResult()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "BillingOfficer");
+
+        var bulkDto = new GenerateBulkBillsDto
+        {
+            BillingMonth = 12,
+            BillingYear = 2024,
+            DueDate = DateTime.Now.AddDays(15)
+        };
+
+        var bulkResult = new BulkBillGenerationResultDto
+        {
+            TotalProcessed = 10,
+            SuccessCount = 10,
+            FailureCount = 0,
+            GeneratedBills = new List<BillDto>()
+        };
+
+        _mockBillService.Setup(x => x.GenerateBulkBillsAsync(It.IsAny<GenerateBulkBillsDto>(), userId))
+            .ReturnsAsync(ApiResponse<BulkBillGenerationResultDto>.SuccessResponse(bulkResult, "Bulk bills generated successfully"));
+
+        // Act
+        var result = await _controller.GenerateBulkBills(bulkDto);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkBillGenerationResultDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(10, response.Data!.SuccessCount);
+        Assert.Equal(0, response.Data.FailureCount);
+    }
+
+    [Fact]
+    public async Task GenerateBulkBills_WithNoUnbilledReadings_ReturnsBadRequest()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "BillingOfficer");
+
+        var bulkDto = new GenerateBulkBillsDto
+        {
+            BillingMonth = 12,
+            BillingYear = 2024,
+            DueDate = DateTime.Now.AddDays(15)
+        };
+
+        _mockBillService.Setup(x => x.GenerateBulkBillsAsync(It.IsAny<GenerateBulkBillsDto>(), userId))
+            .ReturnsAsync(ApiResponse<BulkBillGenerationResultDto>.ErrorResponse("No unbilled readings found for the specified period"));
+
+        // Act
+        var result = await _controller.GenerateBulkBills(bulkDto);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkBillGenerationResultDto>>(badRequestResult.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task GenerateBulkBills_WithPartialSuccess_ReturnsOkWithWarnings()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "BillingOfficer");
+
+        var bulkDto = new GenerateBulkBillsDto
+        {
+            BillingMonth = 12,
+            BillingYear = 2024,
+            DueDate = DateTime.Now.AddDays(15)
+        };
+
+        var bulkResult = new BulkBillGenerationResultDto
+        {
+            TotalProcessed = 10,
+            SuccessCount = 8,
+            FailureCount = 2,
+            GeneratedBills = new List<BillDto>(),
+            Errors = new List<string> { "Error 1", "Error 2" }
+        };
+
+        _mockBillService.Setup(x => x.GenerateBulkBillsAsync(It.IsAny<GenerateBulkBillsDto>(), userId))
+            .ReturnsAsync(ApiResponse<BulkBillGenerationResultDto>.SuccessResponse(bulkResult, "Bulk generation completed with some failures"));
+
+        // Act
+        var result = await _controller.GenerateBulkBills(bulkDto);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkBillGenerationResultDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(8, response.Data!.SuccessCount);
+        Assert.Equal(2, response.Data.FailureCount);
+    }
+
+    #endregion
+}

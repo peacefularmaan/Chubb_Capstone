@@ -1,0 +1,91 @@
+// ========================================
+// GLASSMORPHISM AUTH LAYOUT
+// ========================================
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at top right, #1a1a2e 0%, #16213e 35%, #0f3460 70%, #0a0a0f 100%);
+  background-attachment: fixed;
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+
+  // Animated background orbs
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  &::before {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, #00D2FF 0%, transparent 70%);
+    top: -100px;
+    right: -100px;
+  }
+
+  &::after {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, #00F260 0%, transparent 70%);
+    bottom: -50px;
+    left: -50px;
+    animation-delay: -4s;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.05); }
+}
+
+.auth-shell__card {
+  width: auto;
+  min-width: 320px;
+  max-width: 95vw;
+  padding: 2.5rem 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  position: relative;
+  z-index: 1;
+
+  // Subtle top highlight
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 210, 255, 0.5), transparent);
+  }
+}
+
+.auth-shell__brand {
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  background: linear-gradient(135deg, #00D2FF 0%, #fff 50%, #00F260 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}

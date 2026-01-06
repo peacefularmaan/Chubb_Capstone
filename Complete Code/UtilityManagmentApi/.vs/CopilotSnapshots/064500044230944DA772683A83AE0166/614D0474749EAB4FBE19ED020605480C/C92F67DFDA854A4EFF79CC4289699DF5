@@ -1,0 +1,503 @@
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Moq;
+using System.Security.Claims;
+using UtilityManagmentApi.Controllers;
+using UtilityManagmentApi.DTOs.Bill;
+using UtilityManagmentApi.DTOs.Common;
+using UtilityManagmentApi.DTOs.Consumer;
+using UtilityManagmentApi.DTOs.Payment;
+using UtilityManagmentApi.Services.Interfaces;
+using Xunit;
+
+namespace TestProject.Controllers;
+
+/// <summary>
+/// Unit tests for PaymentsController - Testing payment operations
+/// </summary>
+public class PaymentsControllerTests
+{
+    private readonly Mock<IPaymentService> _mockPaymentService;
+    private readonly Mock<IConsumerService> _mockConsumerService;
+    private readonly Mock<IBillService> _mockBillService;
+    private readonly PaymentsController _controller;
+
+    public PaymentsControllerTests()
+    {
+        _mockPaymentService = new Mock<IPaymentService>();
+        _mockConsumerService = new Mock<IConsumerService>();
+        _mockBillService = new Mock<IBillService>();
+        _controller = new PaymentsController(
+            _mockPaymentService.Object,
+            _mockConsumerService.Object,
+            _mockBillService.Object);
+    }
+
+    #region Helper Methods
+
+    private void SetupUserClaims(int userId, string role)
+    {
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Role, role)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+    }
+
+    #endregion
+
+    #region GetAll Tests
+
+    [Fact]
+    public async Task GetAll_AsAdmin_ReturnsOkWithPaymentList()
+    {
+        // Arrange
+        SetupUserClaims(1, "Admin");
+        var paginationParams = new PaginationParams { PageNumber = 1, PageSize = 10 };
+
+        var payments = new List<PaymentListDto>
+        {
+            new PaymentListDto
+            {
+                Id = 1,
+                PaymentNumber = "PAY-2024-001",
+                BillNumber = "BILL-2024-001",
+                ConsumerName = "John Doe",
+                Amount = 150.00m,
+                PaymentMethod = "Cash",
+                Status = "Completed"
+            },
+            new PaymentListDto
+            {
+                Id = 2,
+                PaymentNumber = "PAY-2024-002",
+                BillNumber = "BILL-2024-002",
+                ConsumerName = "Jane Smith",
+                Amount = 200.00m,
+                PaymentMethod = "CreditCard",
+                Status = "Completed"
+            }
+        };
+
+        var pagedResponse = new PagedResponse<PaymentListDto>
+        {
+            Success = true,
+            Data = payments,
+            PageNumber = 1,
+            PageSize = 10,
+            TotalRecords = 2
+        };
+
+        _mockPaymentService.Setup(x => x.GetAllAsync(It.IsAny<PaginationParams>(), null, null, null))
+            .ReturnsAsync(pagedResponse);
+
+        // Act
+        var result = await _controller.GetAll(paginationParams);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PagedResponse<PaymentListDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(2, response.Data.Count);
+    }
+
+    [Fact]
+    public async Task GetAll_WithPaymentMethodFilter_ReturnsFilteredPayments()
+    {
+        // Arrange
+        SetupUserClaims(1, "AccountOfficer");
+        var paginationParams = new PaginationParams { PageNumber = 1, PageSize = 10 };
+
+        var cashPayments = new List<PaymentListDto>
+        {
+            new PaymentListDto
+            {
+                Id = 1,
+                PaymentNumber = "PAY-2024-001",
+                Amount = 150.00m,
+                PaymentMethod = "Cash",
+                Status = "Completed"
+            }
+        };
+
+        var pagedResponse = new PagedResponse<PaymentListDto>
+        {
+            Success = true,
+            Data = cashPayments,
+            TotalRecords = 1
+        };
+
+        _mockPaymentService.Setup(x => x.GetAllAsync(It.IsAny<PaginationParams>(), "Cash", null, null))
+            .ReturnsAsync(pagedResponse);
+
+        // Act
+        var result = await _controller.GetAll(paginationParams, paymentMethod: "Cash");
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PagedResponse<PaymentListDto>>(okResult.Value);
+        Assert.Single(response.Data);
+        Assert.Equal("Cash", response.Data[0].PaymentMethod);
+    }
+
+    [Fact]
+    public async Task GetAll_WithDateRange_ReturnsPaymentsInRange()
+    {
+        // Arrange
+        SetupUserClaims(1, "Admin");
+        var paginationParams = new PaginationParams { PageNumber = 1, PageSize = 10 };
+        var fromDate = new DateTime(2024, 12, 1);
+        var toDate = new DateTime(2024, 12, 31);
+
+        var payments = new List<PaymentListDto>
+        {
+            new PaymentListDto
+            {
+                Id = 1,
+                PaymentNumber = "PAY-2024-001",
+                PaymentDate = new DateTime(2024, 12, 15)
+            }
+        };
+
+        var pagedResponse = new PagedResponse<PaymentListDto>
+        {
+            Success = true,
+            Data = payments,
+            TotalRecords = 1
+        };
+
+        _mockPaymentService.Setup(x => x.GetAllAsync(It.IsAny<PaginationParams>(), null, fromDate, toDate))
+            .ReturnsAsync(pagedResponse);
+
+        // Act
+        var result = await _controller.GetAll(paginationParams, fromDate: fromDate, toDate: toDate);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PagedResponse<PaymentListDto>>(okResult.Value);
+        Assert.True(response.Success);
+    }
+
+    #endregion
+
+    #region GetMyPayments Tests
+
+    [Fact]
+    public async Task GetMyPayments_AsConsumer_ReturnsOwnPayments()
+    {
+        // Arrange
+        var userId = 5;
+        var consumerId = 1;
+        SetupUserClaims(userId, "Consumer");
+
+        var consumer = new ConsumerDto
+        {
+            Id = consumerId,
+            UserId = userId,
+            ConsumerNumber = "CON240001"
+        };
+
+        var payments = new List<PaymentDto>
+        {
+            new PaymentDto { Id = 1, PaymentNumber = "PAY-2024-001", Amount = 150.00m },
+            new PaymentDto { Id = 2, PaymentNumber = "PAY-2024-002", Amount = 120.00m }
+        };
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.SuccessResponse(consumer));
+
+        _mockPaymentService.Setup(x => x.GetByConsumerIdAsync(consumerId))
+            .ReturnsAsync(ApiResponse<List<PaymentDto>>.SuccessResponse(payments));
+
+        // Act
+        var result = await _controller.GetMyPayments();
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<List<PaymentDto>>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(2, response.Data!.Count);
+    }
+
+    [Fact]
+    public async Task GetMyPayments_WithNoConsumerProfile_ReturnsNotFound()
+    {
+        // Arrange
+        var userId = 5;
+        SetupUserClaims(userId, "Consumer");
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.ErrorResponse("Consumer profile not found"));
+
+        // Act
+        var result = await _controller.GetMyPayments();
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    #endregion
+
+    #region Create Payment Tests (Admin)
+
+    [Fact]
+    public async Task Create_AsAdmin_WithValidData_ReturnsOkResult()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "Admin");
+
+        var createDto = new CreatePaymentDto
+        {
+            BillId = 1,
+            Amount = 150.00m,
+            PaymentMethod = "Cash",
+            Notes = "Payment received at counter"
+        };
+
+        var createdPayment = new PaymentDto
+        {
+            Id = 10,
+            PaymentNumber = "PAY-2024-010",
+            BillId = 1,
+            Amount = 150.00m,
+            PaymentMethod = "Cash",
+            Status = "Completed"
+        };
+
+        _mockPaymentService.Setup(x => x.CreateAsync(It.IsAny<CreatePaymentDto>(), userId))
+            .ReturnsAsync(ApiResponse<PaymentDto>.SuccessResponse(createdPayment, "Payment recorded successfully"));
+
+        // Act
+        var result = await _controller.PayMyBill(createDto);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PaymentDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(150.00m, response.Data!.Amount);
+    }
+
+    [Fact]
+    public async Task Create_WithInvalidBillId_ReturnsBadRequest()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "Admin");
+
+        var createDto = new CreatePaymentDto
+        {
+            BillId = 999,
+            Amount = 150.00m,
+            PaymentMethod = "Cash"
+        };
+
+        _mockPaymentService.Setup(x => x.CreateAsync(It.IsAny<CreatePaymentDto>(), userId))
+            .ReturnsAsync(ApiResponse<PaymentDto>.ErrorResponse("Bill not found"));
+
+        // Act
+        var result = await _controller.PayMyBill(createDto);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PaymentDto>>(badRequestResult.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task Create_WithAmountExceedingBalance_ReturnsBadRequest()
+    {
+        // Arrange
+        var userId = 1;
+        SetupUserClaims(userId, "Admin");
+
+        var createDto = new CreatePaymentDto
+        {
+            BillId = 1,
+            Amount = 500.00m, // More than outstanding balance
+            PaymentMethod = "Cash"
+        };
+
+        _mockPaymentService.Setup(x => x.CreateAsync(It.IsAny<CreatePaymentDto>(), userId))
+            .ReturnsAsync(ApiResponse<PaymentDto>.ErrorResponse("Payment amount exceeds outstanding balance"));
+
+        // Act
+        var result = await _controller.PayMyBill(createDto);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PaymentDto>>(badRequestResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("exceeds", response.Message);
+    }
+
+    #endregion
+
+    #region PayMyBill Tests (Consumer)
+
+    [Fact]
+    public async Task PayMyBill_AsConsumer_ForOwnBill_ReturnsOkResult()
+    {
+        // Arrange
+        var userId = 5;
+        var consumerId = 1;
+        SetupUserClaims(userId, "Consumer");
+
+        var consumer = new ConsumerDto
+        {
+            Id = consumerId,
+            UserId = userId,
+            ConsumerNumber = "CON240001"
+        };
+
+        var bill = new BillDto
+        {
+            Id = 1,
+            BillNumber = "BILL-2024-001",
+            ConsumerNumber = "CON240001",
+            OutstandingBalance = 150.00m
+        };
+
+        var createDto = new CreatePaymentDto
+        {
+            BillId = 1,
+            Amount = 150.00m,
+            PaymentMethod = "OnlinePayment"
+        };
+
+        var createdPayment = new PaymentDto
+        {
+            Id = 10,
+            PaymentNumber = "PAY-2024-010",
+            BillId = 1,
+            Amount = 150.00m,
+            PaymentMethod = "OnlinePayment",
+            Status = "Completed"
+        };
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.SuccessResponse(consumer));
+
+        _mockBillService.Setup(x => x.GetByIdAsync(1))
+            .ReturnsAsync(ApiResponse<BillDto>.SuccessResponse(bill));
+
+        _mockPaymentService.Setup(x => x.CreateAsync(It.IsAny<CreatePaymentDto>(), userId))
+            .ReturnsAsync(ApiResponse<PaymentDto>.SuccessResponse(createdPayment));
+
+        // Act
+        var result = await _controller.PayMyBill(createDto);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PaymentDto>>(okResult.Value);
+        Assert.True(response.Success);
+    }
+
+    [Fact]
+    public async Task PayMyBill_ForOtherConsumerBill_ReturnsForbid()
+    {
+        // Arrange
+        var userId = 5;
+        SetupUserClaims(userId, "Consumer");
+
+        var consumer = new ConsumerDto
+        {
+            Id = 1,
+            UserId = userId,
+            ConsumerNumber = "CON240001"
+        };
+
+        var bill = new BillDto
+        {
+            Id = 2,
+            BillNumber = "BILL-2024-002",
+            ConsumerNumber = "CON240002" // Different consumer
+        };
+
+        var createDto = new CreatePaymentDto
+        {
+            BillId = 2,
+            Amount = 150.00m,
+            PaymentMethod = "OnlinePayment"
+        };
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.SuccessResponse(consumer));
+
+        _mockBillService.Setup(x => x.GetByIdAsync(2))
+            .ReturnsAsync(ApiResponse<BillDto>.SuccessResponse(bill));
+
+        // Act
+        var result = await _controller.PayMyBill(createDto);
+
+        // Assert
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task PayMyBill_WithNonExistentBill_ReturnsNotFound()
+    {
+        // Arrange
+        var userId = 5;
+        SetupUserClaims(userId, "Consumer");
+
+        var consumer = new ConsumerDto
+        {
+            Id = 1,
+            UserId = userId,
+            ConsumerNumber = "CON240001"
+        };
+
+        var createDto = new CreatePaymentDto
+        {
+            BillId = 999,
+            Amount = 150.00m,
+            PaymentMethod = "OnlinePayment"
+        };
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.SuccessResponse(consumer));
+
+        _mockBillService.Setup(x => x.GetByIdAsync(999))
+            .ReturnsAsync(ApiResponse<BillDto>.ErrorResponse("Bill not found"));
+
+        // Act
+        var result = await _controller.PayMyBill(createDto);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task PayMyBill_WithNoConsumerProfile_ReturnsNotFound()
+    {
+        // Arrange
+        var userId = 5;
+        SetupUserClaims(userId, "Consumer");
+
+        var createDto = new CreatePaymentDto
+        {
+            BillId = 1,
+            Amount = 150.00m,
+            PaymentMethod = "OnlinePayment"
+        };
+
+        _mockConsumerService.Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(ApiResponse<ConsumerDto>.ErrorResponse("Consumer not found"));
+
+        // Act
+        var result = await _controller.PayMyBill(createDto);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    #endregion
+}

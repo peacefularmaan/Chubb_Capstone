@@ -1,0 +1,76 @@
+<div class="notifications-page">
+	<!-- Page Header -->
+	<div class="page-header">
+		<div class="header-left">
+			<button class="back-btn" (click)="goBack()">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+			</button>
+			<div class="header-icon">
+				<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+			</div>
+			<div class="header-text">
+				<h1>Notifications</h1>
+				<p>Stay updated with your alerts and messages</p>
+			</div>
+		</div>
+		<button class="mark-all-btn" (click)="markAllRead()">
+			<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+			<span>Mark all read</span>
+		</button>
+	</div>
+
+	<!-- Filter Section -->
+	<div class="filter-section">
+		<div class="filter-group">
+			<div class="filter-item">
+				<label>Filter</label>
+				<select [(ngModel)]="filterIsRead" (change)="load()">
+					<option [ngValue]="undefined">All Notifications</option>
+					<option [ngValue]="false">Unread</option>
+					<option [ngValue]="true">Read</option>
+				</select>
+			</div>
+		</div>
+		<span class="notification-count">{{ notifications.length }} notification(s)</span>
+	</div>
+
+	<!-- Loading -->
+	<div *ngIf="loading" class="loading-container">
+		<mat-progress-spinner mode="indeterminate" diameter="48"></mat-progress-spinner>
+		<p>Loading notifications...</p>
+	</div>
+
+	<!-- Notifications List -->
+	<div class="notifications-list" *ngIf="!loading">
+		<div *ngFor="let n of notifications" class="notification-card" [class.read]="n.isRead">
+			<div class="notification-icon" [class.unread]="!n.isRead">
+				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+			</div>
+			<div class="notification-content">
+				<div class="notification-header">
+					<h3>{{ n.title }}</h3>
+					<span class="notification-time">{{ n.createdAt | date: 'medium' }}</span>
+				</div>
+				<p class="notification-message">{{ n.message }}</p>
+				<div class="notification-actions">
+					<button class="action-btn read" (click)="markRead(n)" [disabled]="n.isRead">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+						Mark read
+					</button>
+					<button class="action-btn delete" (click)="deleteNotification(n)" [disabled]="deletingId === n.id">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+						{{ deletingId === n.id ? 'Deleting...' : 'Delete' }}
+					</button>
+				</div>
+			</div>
+			<div class="unread-indicator" *ngIf="!n.isRead"></div>
+		</div>
+
+		<!-- Empty State -->
+		<div *ngIf="notifications.length === 0" class="empty-state">
+			<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+			<h4>No notifications</h4>
+			<p>You're all caught up! Check back later for updates.</p>
+		</div>
+	</div>
+</div>
