@@ -170,7 +170,7 @@ import { configureCaseInsensitiveSort } from '../../../shared/utils/table-sort.u
               <th mat-header-cell *matHeaderCellDef>ACTIONS</th>
               <td mat-cell *matCellDef="let row">
                 <div class="action-buttons">
-                  <button class="action-btn view" [routerLink]="['/connections', row.id]" matTooltip="View Details">
+                  <button class="action-btn view" [routerLink]="['/connections', row.id]" matTooltip="View Details" *ngIf="isAdmin">
                     <mat-icon>visibility</mat-icon>
                   </button>
                   <button class="action-btn edit" [routerLink]="['/connections', row.id, 'edit']" matTooltip="Edit" *ngIf="canEdit">
@@ -785,7 +785,7 @@ export class ConnectionListComponent implements OnInit {
   }
 
   dataSource = new MatTableDataSource<ConnectionListItem>([]);
-  displayedColumns = ['connectionNumber', 'meterNumber', 'consumerName', 'utilityType', 'tariffPlanName', 'connectionDate', 'status', 'actions'];
+  displayedColumns: string[] = [];
 
   loading = false;
   searchTerm = '';
@@ -806,6 +806,13 @@ export class ConnectionListComponent implements OnInit {
     const user = this.authService.getCurrentUser();
     this.canEdit = user?.role === 'Admin';
     this.isAdmin = user?.role === 'Admin';
+    
+    // Set displayed columns based on role - hide actions column for non-admin users
+    this.displayedColumns = ['connectionNumber', 'meterNumber', 'consumerName', 'utilityType', 'tariffPlanName', 'connectionDate', 'status'];
+    if (this.isAdmin) {
+      this.displayedColumns.push('actions');
+    }
+    
     configureCaseInsensitiveSort(this.dataSource);
   }
 

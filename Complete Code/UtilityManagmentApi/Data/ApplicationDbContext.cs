@@ -253,5 +253,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
                 .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // Apply UTC DateTime converters to all DateTime properties
+        // This ensures that DateTime values read from SQL Server are properly marked as UTC
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(new UtcDateTimeDbConverter());
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(new NullableUtcDateTimeDbConverter());
+                }
+            }
+        }
     }
 }
