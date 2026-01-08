@@ -872,7 +872,7 @@ export class DeleteConfirmDialogComponent {
       <mat-dialog-content>
         <form [formGroup]="form" class="dialog-form">
           <div class="form-group">
-            <label>Name</label>
+            <label>Name <span class="required">*</span></label>
             <mat-form-field appearance="outline" class="full-width">
               <input matInput formControlName="name" placeholder="e.g., Electricity, Water">
               <mat-error *ngIf="form.get('name')?.hasError('required')">Name is required</mat-error>
@@ -887,7 +887,7 @@ export class DeleteConfirmDialogComponent {
           </div>
 
           <div class="form-group">
-            <label>Unit of Measurement</label>
+            <label>Unit of Measurement <span class="required">*</span></label>
             <mat-form-field appearance="outline" class="full-width">
               <input matInput formControlName="unitOfMeasurement" placeholder="e.g., kWh, Liters, m³">
               <mat-error *ngIf="form.get('unitOfMeasurement')?.hasError('required')">Unit is required</mat-error>
@@ -965,6 +965,10 @@ export class DeleteConfirmDialogComponent {
           margin-bottom: 0.5rem;
           text-transform: uppercase;
           letter-spacing: 0.03em;
+
+          .required {
+            color: #ff6b6b;
+          }
         }
       }
     }
