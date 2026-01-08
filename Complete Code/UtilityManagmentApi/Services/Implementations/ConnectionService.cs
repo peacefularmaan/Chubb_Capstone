@@ -263,6 +263,7 @@ public class ConnectionService : IConnectionService
     {
         var connection = await _context
             .Connections.Include(c => c.Bills)
+                .ThenInclude(b => b.Payment)
             .Include(c => c.MeterReadings)
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -271,7 +272,36 @@ public class ConnectionService : IConnectionService
             return ApiResponse<bool>.ErrorResponse("Connection not found");
         }
 
-        // Check for pending bills (Due or Overdue status)
+        // If connection is already inactive, delete it directly (admin has already deactivated it)
+        if (connection.Status == ConnectionStatus.Inactive)
+        {
+            // Delete related payments first
+            foreach (var bill in connection.Bills)
+            {
+                if (bill.Payment != null)
+                {
+                    _context.Payments.Remove(bill.Payment);
+                }
+            }
+
+            // Delete related bills
+            if (connection.Bills.Any())
+            {
+                _context.Bills.RemoveRange(connection.Bills);
+            }
+
+            // Delete related meter readings
+            if (connection.MeterReadings.Any())
+            {
+                _context.MeterReadings.RemoveRange(connection.MeterReadings);
+            }
+
+            _context.Connections.Remove(connection);
+            await _context.SaveChangesAsync();
+            return ApiResponse<bool>.SuccessResponse(true, "Connection deleted successfully");
+        }
+
+        // Check for pending bills (Due or Overdue status) only for active connections
         var pendingBills = connection
             .Bills.Where(b => b.Status == BillStatus.Due || b.Status == BillStatus.Overdue)
             .ToList();
