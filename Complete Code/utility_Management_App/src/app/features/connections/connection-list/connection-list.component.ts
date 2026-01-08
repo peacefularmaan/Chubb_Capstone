@@ -946,7 +946,7 @@ export class ConnectionListComponent implements OnInit {
             <span class="value">{{ data.consumerName }}</span>
           </div>
         </div>
-        <p class="warning-text">This action will disconnect the utility service. If there are associated bills or readings, the connection will be marked as disconnected instead of being permanently deleted.</p>
+        <p class="warning-text">If this connection has some associated unpaid bills, this connection won't be deleted.</p>
       </div>
       <div class="dialog-actions">
         <button mat-stroked-button (click)="onCancel()">Cancel</button>
@@ -1095,7 +1095,7 @@ export class DeleteConnectionDialogComponent {
       margin: 0;
       font-size: 20px;
       font-weight: 600;
-      color: #1e293b;
+      color: #ffffff;
     }
     .connection-badge {
       display: inline-flex;
