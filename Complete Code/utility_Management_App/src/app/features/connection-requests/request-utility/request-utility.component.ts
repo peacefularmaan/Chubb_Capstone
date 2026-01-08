@@ -651,9 +651,11 @@ export class RequestUtilityComponent implements OnInit {
           --mdc-outlined-text-field-outline-color: rgba(255,255,255,0.2);
           --mdc-outlined-text-field-hover-outline-color: rgba(0,210,255,0.5);
           --mdc-outlined-text-field-focus-outline-color: #00D2FF;
+          --mdc-outlined-text-field-label-text-color: rgba(255,255,255,0.5);
+          --mdc-outlined-text-field-focus-label-text-color: #00D2FF;
         }
-        .mat-mdc-form-field-label, .mdc-floating-label {
-          color: rgba(255,255,255,0.5) !important;
+        .mdc-notched-outline__notch {
+          border-right: none;
         }
         input, textarea, .mat-mdc-select-value {
           color: rgba(255,255,255,0.95) !important;
