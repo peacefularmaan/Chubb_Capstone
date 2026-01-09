@@ -56,7 +56,7 @@ import { MatIconModule } from '@angular/material/icon';
               [class.error]="form.get('email')?.touched && form.get('email')?.invalid"
             />
             <span class="error-msg" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('required')">Email is required</span>
-            <span class="error-msg" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('email')">Invalid email</span>
+            <span class="error-msg" *ngIf="form.get('email')?.touched && (form.get('email')?.hasError('email') || form.get('email')?.hasError('pattern'))">Please enter a valid email (e.g., user@example.com)</span>
             <span class="error-msg" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('lowercase')">Email must contain only lowercase characters</span>
           </div>
 
@@ -398,10 +398,11 @@ export class RegisterComponent {
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {
+    const strictEmailPattern = Validators.pattern(/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/);
     this.form = this.fb.group({
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email, this.lowercaseValidator]],
+      email: ['', [Validators.required, Validators.email, strictEmailPattern, this.lowercaseValidator]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       phone: [''],
       address: ['', Validators.required],

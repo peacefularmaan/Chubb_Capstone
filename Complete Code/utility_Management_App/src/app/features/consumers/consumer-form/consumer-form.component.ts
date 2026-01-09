@@ -62,7 +62,7 @@ import { CreateConsumerRequest, UpdateConsumerRequest } from '../../../core/mode
                 <mat-label>Email</mat-label>
                 <input matInput type="email" formControlName="email" autocomplete="new-email" />
                 <mat-error *ngIf="form.get('email')?.hasError('required')">Email is required</mat-error>
-                <mat-error *ngIf="form.get('email')?.hasError('email')">Please enter a valid email</mat-error>
+                <mat-error *ngIf="form.get('email')?.hasError('email') || form.get('email')?.hasError('pattern')">Please enter a valid email (e.g., user@example.com)</mat-error>
                 <mat-error *ngIf="form.get('email')?.hasError('lowercase')">Email must contain only lowercase characters</mat-error>
               </mat-form-field>
 
@@ -203,6 +203,7 @@ import { CreateConsumerRequest, UpdateConsumerRequest } from '../../../core/mode
 
     .full-width {
       width: 100%;
+      margin-bottom: 0.5rem;
     }
 
     ::ng-deep {
@@ -217,6 +218,9 @@ import { CreateConsumerRequest, UpdateConsumerRequest } from '../../../core/mode
         }
         input, textarea {
           color: rgba(255,255,255,0.95) !important;
+        }
+        .mat-mdc-form-field-subscript-wrapper {
+          min-height: 1.5rem;
         }
       }
       .mat-mdc-slide-toggle {
@@ -286,10 +290,11 @@ export class ConsumerFormComponent implements OnInit {
     private consumersService: ConsumersService,
     private cdr: ChangeDetectorRef
   ) {
+    const strictEmailPattern = Validators.pattern(/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/);
     this.form = this.fb.group({
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email, this.lowercaseValidator.bind(this)]],
+      email: ['', [Validators.required, Validators.email, strictEmailPattern, this.lowercaseValidator.bind(this)]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       phone: [''],
       address: ['', Validators.required],
