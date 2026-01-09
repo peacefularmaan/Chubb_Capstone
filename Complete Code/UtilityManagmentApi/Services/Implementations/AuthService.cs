@@ -321,36 +321,74 @@ public class AuthService : IAuthService
             if (!currentRole.Equals(request.Role, StringComparison.OrdinalIgnoreCase))
             {
                 // If changing FROM Consumer role, check for active connections
-                if (
-                    currentRole.Equals("Consumer", StringComparison.OrdinalIgnoreCase)
-                    && user.Consumer != null
-                )
+                if (currentRole.Equals("Consumer", StringComparison.OrdinalIgnoreCase))
                 {
-                    var activeConnections = await _context
-                        .Connections.Where(c =>
-                            c.ConsumerId == user.Consumer.Id && c.Status == ConnectionStatus.Active
-                        )
-                        .ToListAsync();
-
-                    if (activeConnections.Any())
+                    // Check if consumer exists in database (navigation property might be null)
+                    var consumerRecord = user.Consumer ?? await _context.Consumers.FirstOrDefaultAsync(c => c.UserId == user.Id);
+                    
+                    if (consumerRecord != null)
                     {
-                        var connectionCount = activeConnections.Count;
-                        var connectionNumbers = string.Join(
-                            ", ",
-                            activeConnections.Take(3).Select(c => c.ConnectionNumber)
-                        );
-                        var moreText =
-                            connectionCount > 3 ? $" and {connectionCount - 3} more" : "";
+                        var activeConnections = await _context
+                            .Connections.Where(c =>
+                                c.ConsumerId == consumerRecord.Id && c.Status == ConnectionStatus.Active
+                            )
+                            .ToListAsync();
 
-                        return ApiResponse<UserDto>.ErrorResponse(
-                            $"Cannot change role from Consumer. This user has {connectionCount} active connection(s): {connectionNumbers}{moreText}. "
-                                + $"Please disconnect or transfer all connections before changing the role."
-                        );
+                        if (activeConnections.Any())
+                        {
+                            var connectionCount = activeConnections.Count;
+                            var connectionNumbers = string.Join(
+                                ", ",
+                                activeConnections.Take(3).Select(c => c.ConnectionNumber)
+                            );
+                            var moreText =
+                                connectionCount > 3 ? $" and {connectionCount - 3} more" : "";
+
+                            return ApiResponse<UserDto>.ErrorResponse(
+                                $"Cannot change role from Consumer. This user has {connectionCount} active connection(s): {connectionNumbers}{moreText}. "
+                                    + $"Please disconnect or transfer all connections before changing the role."
+                            );
+                        }
+
+                        // Check for any inactive connections - these need to be deleted first
+                        var inactiveConnections = await _context
+                            .Connections.Where(c => c.ConsumerId == consumerRecord.Id)
+                            .ToListAsync();
+
+                        // Remove related connection requests first
+                        var connectionRequests = await _context
+                            .ConnectionRequests.Where(cr => cr.ConsumerId == consumerRecord.Id)
+                            .ToListAsync();
+                        
+                        if (connectionRequests.Any())
+                        {
+                            _context.ConnectionRequests.RemoveRange(connectionRequests);
+                        }
+
+                        // Remove inactive connections (they have no active bills/payments since they're inactive)
+                        if (inactiveConnections.Any())
+                        {
+                            // Check if any connections have bills or meter readings
+                            foreach (var conn in inactiveConnections)
+                            {
+                                var hasBills = await _context.Bills.AnyAsync(b => b.ConnectionId == conn.Id);
+                                var hasMeterReadings = await _context.MeterReadings.AnyAsync(m => m.ConnectionId == conn.Id);
+                                
+                                if (hasBills || hasMeterReadings)
+                                {
+                                    return ApiResponse<UserDto>.ErrorResponse(
+                                        $"Cannot change role from Consumer. This user has connection history (bills/meter readings) for connection {conn.ConnectionNumber}. "
+                                            + $"The consumer profile will be retained but marked as inactive."
+                                    );
+                                }
+                            }
+                            _context.Connections.RemoveRange(inactiveConnections);
+                        }
+
+                        // Remove the consumer profile when changing away from Consumer role
+                        _context.Consumers.Remove(consumerRecord);
+                        await _context.SaveChangesAsync();
                     }
-
-                    // Remove the consumer profile when changing away from Consumer role
-                    _context.Consumers.Remove(user.Consumer);
-                    await _context.SaveChangesAsync();
                 }
 
                 // Validate the new role exists
