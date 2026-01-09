@@ -347,6 +347,10 @@ public class AuthService : IAuthService
                                 + $"Please disconnect or transfer all connections before changing the role."
                         );
                     }
+
+                    // Remove the consumer profile when changing away from Consumer role
+                    _context.Consumers.Remove(user.Consumer);
+                    await _context.SaveChangesAsync();
                 }
 
                 // Validate the new role exists
@@ -357,9 +361,11 @@ public class AuthService : IAuthService
                 }
 
                 // If changing TO Consumer role, create consumer profile if not exists
+                // Check database directly to avoid stale navigation property
+                var existingConsumer = await _context.Consumers.FirstOrDefaultAsync(c => c.UserId == user.Id);
                 if (
                     request.Role.Equals("Consumer", StringComparison.OrdinalIgnoreCase)
-                    && user.Consumer == null
+                    && existingConsumer == null
                 )
                 {
                     var consumerNumber = await GenerateConsumerNumberAsync();
@@ -421,29 +427,39 @@ public class AuthService : IAuthService
             return ApiResponse<bool>.ErrorResponse("User not found");
         }
 
-        // Check if user has related data
-        if (user.Consumer != null)
+        // Check if user has related data - query database directly to find all consumer records
+        var allConsumers = await _context.Consumers.Where(c => c.UserId == userId).ToListAsync();
+        
+        if (allConsumers.Any())
         {
-            var consumerId = user.Consumer.Id;
-            var hasConnections = await _context.Connections.AnyAsync(c =>
-                c.ConsumerId == consumerId
-            );
-            var hasBills = await _context.Bills.AnyAsync(b =>
-                b.Connection.ConsumerId == consumerId
-            );
-            var hasPayments = await _context.Payments.AnyAsync(p =>
-                p.Bill.Connection.ConsumerId == consumerId
-            );
-
-            if (hasConnections || hasBills || hasPayments)
+            foreach (var consumer in allConsumers)
             {
-                return ApiResponse<bool>.ErrorResponse(
-                    "Cannot delete user with existing connections, bills, or payments. Please set the user to inactive instead."
+                var hasConnections = await _context.Connections.AnyAsync(c =>
+                    c.ConsumerId == consumer.Id
                 );
+                var hasBills = await _context.Bills.AnyAsync(b =>
+                    b.Connection.ConsumerId == consumer.Id
+                );
+                var hasPayments = await _context.Payments.AnyAsync(p =>
+                    p.Bill.Connection.ConsumerId == consumer.Id
+                );
+
+                if (hasConnections || hasBills || hasPayments)
+                {
+                    return ApiResponse<bool>.ErrorResponse(
+                        "Cannot delete user with existing connections, bills, or payments. Please set the user to inactive instead."
+                    );
+                }
+
+                // Remove connection requests for this consumer
+                var connectionRequests = await _context.ConnectionRequests
+                    .Where(cr => cr.ConsumerId == consumer.Id)
+                    .ToListAsync();
+                _context.ConnectionRequests.RemoveRange(connectionRequests);
             }
 
-            // Remove consumer profile first
-            _context.Consumers.Remove(user.Consumer);
+            // Remove all consumer profiles
+            _context.Consumers.RemoveRange(allConsumers);
             await _context.SaveChangesAsync();
         }
 

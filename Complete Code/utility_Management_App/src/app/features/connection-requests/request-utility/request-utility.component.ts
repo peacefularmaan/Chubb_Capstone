@@ -601,6 +601,18 @@ export class RequestUtilityComponent implements OnInit {
       --mdc-dialog-container-color: rgba(22, 33, 62, 0.95);
     }
 
+    ::ng-deep mat-dialog-content.mat-mdc-dialog-content {
+      max-height: 60vh !important;
+      overflow-y: auto !important;
+      padding-bottom: 1.5rem !important;
+    }
+
+    ::ng-deep mat-dialog-actions.mat-mdc-dialog-actions {
+      padding: 1rem 1.5rem !important;
+      margin-top: 0 !important;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
     h2[mat-dialog-title] {
       color: rgba(255,255,255,0.95) !important;
     }

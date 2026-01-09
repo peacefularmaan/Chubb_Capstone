@@ -101,7 +101,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
-        // Add UTC DateTime converters to fix timezone issues on frontend
+        // Adding UTC DateTime converters to fix timezone issues on frontend
         options.JsonSerializerOptions.Converters.Add(new UtilityManagmentApi.Data.Converters.UtcDateTimeConverter());
         options.JsonSerializerOptions.Converters.Add(new UtilityManagmentApi.Data.Converters.NullableUtcDateTimeConverter());
     });
